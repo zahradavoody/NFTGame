@@ -1,3 +1,4 @@
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -6,12 +7,13 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract NFTCollection is ERC721Enumerable, Ownable {
     using Strings for uint256;
 
-    string public baseURI ="http://api.bunny.example.com/";
+    string public baseURI ="ipfs://QmTDC875kXWmXdHii7QsT6PY6sPyKCxYuXVaFbjB4krcYt/";
     string public baseExtension = ".json";
 
     uint256 public mintCost = 0.001 ether;
     uint256 public maxSupply = 336669;
-    uint256 public maxMintAmount = 1; //The maximum amount that the owner let users to minting NFTs
+    uint256 public maxMintAmount = 1; //the owner let users to mint in a single mint transaction
+    uint256 public maxUserMint = 10;//max token that user can mint
 
     // founders addresses
     address public founder1 = 0xcFB0cF666A765669758905D876f16C963312Cea2; // owner
@@ -19,9 +21,8 @@ contract NFTCollection is ERC721Enumerable, Ownable {
     address public founder3 = 0xACE4e59882A10440167f673CB9b8Cc83C8984D36;
     address public rewardAccount = 0xe89000B354F87DAba523A4142d648520a1A0Ab2c;
 
-    mapping(address => uint256) public addressMintedBalance;
-
-    modifier isWhitelisted() {
+    
+    modifier isFounder() {
         require(
             founder1 == _msgSender() ||
                 founder2 == _msgSender() ||
@@ -32,7 +33,7 @@ contract NFTCollection is ERC721Enumerable, Ownable {
     }
 
     constructor(
-    ) ERC721("name", "symbol") {
+    ) ERC721("Pari", "TFM") {
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -42,51 +43,43 @@ contract NFTCollection is ERC721Enumerable, Ownable {
     // public mint
     function mint(uint256 _mintAmount) external payable {
         uint256 supply = totalSupply(); // current index NFTCollection
+        uint256 mintedBalance = balanceOf(_msgSender()); // current minted balance of user
         require(_mintAmount > 0 && _mintAmount <= maxMintAmount, "NFTCollection: Invalid mint amount!");
         require(supply + _mintAmount <= maxSupply,"NFTCollection: Max supply exceeded!");
+        require(mintedBalance + _mintAmount <= maxUserMint , "NFTCollection: User max minted exceeded!");
+
         // check if tx.value is correct
-        require(msg.value >= mintCost * _mintAmount, "invalid value");
+        require(mintCost * _mintAmount <= msg.value , "invalid value for minting");
         
 
         for (uint256 i = 1; i <= _mintAmount; i++) {
             _safeMint(_msgSender(), supply + i);
         }
 
-        (bool success, ) = payable(rewardAccount).call{
+       // uint256 
+
+         (bool success, ) = payable(rewardAccount).call{
             value: (msg.value * 55) / 100
-        }("");
-        require(success, "NFTCollection: Withdraw faild!");
+         }("");
+         require(success, "NFTCollection: Withdraw failed!");
     }
 
     // private mint, only founders can call it
-    function mintFounders(uint256 _mintAmount) external isWhitelisted {
+    function mintFounders(uint256 _mintAmount) external isFounder {
         uint256 supply = totalSupply(); // current index NFT
-        require(_mintAmount > 0, "NFTCollection: Invalid mint amount!");
+        uint256 founderMintedBalance = balanceOf(_msgSender());
+        require(_mintAmount > 0 && _mintAmount <= 100, "NFTCollection: Invalid mint amount!");
         require(supply + _mintAmount <= maxSupply,"NFTCollection: Max supply exceeded!");
-        require(addressMintedBalance[_msgSender()] + _mintAmount < 101, "NFTCollection: max NFTCollection per partner exceeded");
+        require(founderMintedBalance + _mintAmount <= 100, "NFTCollection: Max NFTCollection per founder exceeded");
 
         for (uint256 i = 1; i <= _mintAmount; i++) {
             _safeMint(_msgSender(), supply + i);
         }
 
-        addressMintedBalance[_msgSender()] = addressMintedBalance[_msgSender()] + _mintAmount;
-    }
+            }
 
 
-    // return list of token ids that address own them
-    function walletOfOwner(address _owner)
-        public
-        view
-        returns (uint256[] memory)
-    {
-        uint256 ownerTokenCount = balanceOf(_owner);
-        uint256[] memory tokenIds = new uint256[](ownerTokenCount);
-        for (uint256 i; i < ownerTokenCount; i++) {
-            tokenIds[i] = tokenOfOwnerByIndex(_owner, i);
-        }
-        return tokenIds;
-    }
-
+    
     // return token metadata uri like "ipfs://QmTDC875kXWkm/1.json"
     function tokenURI(uint256 tokenId) public view override returns (string memory)
     {
@@ -107,8 +100,8 @@ contract NFTCollection is ERC721Enumerable, Ownable {
     }
 
     // set maximum mint amount for every time user call mint function
-    function setmaxMintAmount(uint256 _newmaxMintAmount) external onlyOwner {
-        maxMintAmount = _newmaxMintAmount;
+    function setMaxMintAmount(uint256 _newMaxMintAmount) external onlyOwner {
+        maxMintAmount = _newMaxMintAmount;
     }
 
     // set new revealed uri
@@ -128,15 +121,15 @@ contract NFTCollection is ERC721Enumerable, Ownable {
         (bool success1, ) = payable(founder1).call{value: (value * 33) / 100}(
             ""
         );
-        require(success1, "NFTCollection: Withdraw faild!");
+        require(success1, "NFTCollection: Withdraw failed!");
         (bool success2, ) = payable(founder2).call{value: (value * 33) / 100}(
             ""
         );
-        require(success2, "NFTCollection: Withdraw faild!");
+        require(success2, "NFTCollection: Withdraw failed!");
         (bool success3, ) = payable(founder3).call{value: (value * 33) / 100}(
             ""
         );
-        require(success3, "NFTCollection: Withdraw faild!");
+        require(success3, "NFTCollection: Withdraw failed!");
     }
 
 
